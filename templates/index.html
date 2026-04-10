@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VeeGen — AI Video Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #06060a;
+            --surface: #0f0f14;
+            --surface-2: #16161d;
+            --surface-3: #1c1c25;
+            --border: #1e1e28;
+            --border-hover: #2e2e3a;
+            --text: #e4e4e7;
+            --text-muted: #71717a;
+            --text-dim: #52525b;
+            --accent: #7c3aed;
+            --accent-light: #a78bfa;
+            --accent-soft: #7c3aed18;
+            --accent-glow: rgba(124, 58, 237, .22);
+            --cyan: #06b6d4;
+            --green: #34d399;
+            --yellow: #fbbf24;
+            --red: #f87171;
+            --radius: 16px;
+            --radius-sm: 10px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Ambient background ── */
+        .bg-glow {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .bg-glow .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+        }
+        .bg-glow .orb-1 {
+            width: 550px; height: 550px;
+            background: #7c3aed;
+            opacity: .08;
+            top: -180px; left: -80px;
+        }
+        .bg-glow .orb-2 {
+            width: 400px; height: 400px;
+            background: #06b6d4;
+            opacity: .06;
+            bottom: -120px; right: -60px;
+        }
+        .bg-glow .orb-3 {
+            width: 300px; height: 300px;
+            background: #ec4899;
+            opacity: .04;
+            top: 50%; left: 60%;
+        }
+
+        /* ── Noise overlay ── */
+        .bg-glow::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.025'/%3E%3C/svg%3E");
+            opacity: .4;
+        }
+
+        /* ── Layout ── */
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 1140px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* ── Navigation bar ── */
+        .navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: .8rem 0;
+            margin-bottom: 2rem;
+        }
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: .55rem;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .nav-logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, #7c3aed, #06b6d4);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            color: #fff;
+        }
+        .nav-logo-text {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -.02em;
+            background: linear-gradient(135deg, #fff 40%, var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-badge {
+            font-size: .65rem;
+            font-weight: 600;
+            padding: .25rem .6rem;
+            border-radius: 20px;
+            background: var(--accent-soft);
+            color: var(--accent-light);
+            letter-spacing: .04em;
+        }
+
+        /* ── Pages ── */
+        .page { display: none; }
+        .page.visible { display: block; }
+
+        /* ── Hero ── */
+        .hero {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .hero h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -.04em;
+            line-height: 1.1;
+            margin-bottom: .7rem;
+            color: #fff;
+        }
+        .hero h1 .gradient {
+            background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 520px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* ── Section header ── */
+        .section-label {
+            font-size: .75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .12em;
+            color: var(--text-dim);
+            margin-bottom: 1rem;
+        }
+
+        /* ── Cards grid ── */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1rem;
+        }
+
+        .card {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all .25s cubic-bezier(.4,0,.2,1);
+            overflow: hidden;
+        }
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent);
+        }
+        .card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(0,0,0,.35);
+        }
+
+        .card.ready {
+            border-color: #7c3aed44;
+        }
+        .card.ready:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), 0 12px 40px var(--accent-glow);
+        }
+        .card.ready .card-badge { background: var(--accent); color: #fff; }
+
+        .card.soon {
+            opacity: .5;
+            cursor: default;
+        }
+        .card.soon:hover {
+            transform: none;
+            border-color: var(--border);
+            box-shadow: none;
+        }
+
+        .card-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: .8rem;
+        }
+        .card-icon {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+        .card-badge {
+            font-size: .65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            padding: .28rem .65rem;
+            border-radius: 20px;
+            background: var(--surface-3);
+            color: var(--text-dim);
+        }
+        .card h3 {
+            font-size: 1.08rem;
+            font-weight: 700;
+            margin-bottom: .35rem;
+            color: #fff;
+        }
+        .card .desc {
+            font-size: .84rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+            margin-bottom: .85rem;
+        }
+        .card-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .35rem;
+        }
+        .card-chips span {
+            font-size: .68rem;
+            font-weight: 500;
+            padding: .22rem .55rem;
+            border-radius: 6px;
+            background: var(--surface-2);
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+        }
+
+        /* ── Create page ── */
+        .create-header {
+            margin-bottom: 2rem;
+        }
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .5rem .9rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            color: var(--text-muted);
+            font-size: .85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .15s;
+            margin-bottom: 1.5rem;
+        }
+        .btn-back:hover {
+            background: var(--surface-2);
+            border-color: var(--border-hover);
+            color: #fff;
+        }
+        .btn-back svg {
+            width: 16px; height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .create-title {
+            display: flex;
+            align-items: center;
+            gap: .7rem;
+        }
+        .create-title .icon-wrap {
+            width: 48px; height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+        .create-title h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .create-title h2 small {
+            display: block;
+            font-size: .82rem;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-top: .15rem;
+        }
+
+        /* ── Form card ── */
+        .form-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+            max-width: 560px;
+        }
+        .form-card::after {
+            content: '';
+            display: block;
+            position: relative;
+            top: -100%;
+            left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.04), transparent);
+            pointer-events: none;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .9rem;
+        }
+        .form-grid .field.full { grid-column: 1 / -1; }
+
+        .field { margin-bottom: 0; }
+        .field label {
+            display: block;
+            font-size: .73rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            color: var(--text-muted);
+            margin-bottom: .4rem;
+        }
+        .field input, .field select {
+            width: 100%;
+            padding: .65rem .85rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg);
+            color: var(--text);
+            font-family: inherit;
+            font-size: .92rem;
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .field input:focus, .field select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .field input::placeholder { color: var(--text-dim); }
+        .field select { cursor: pointer; }
+
+        .btn-generate {
+            width: 100%;
+            padding: .8rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            color: #fff;
+            font-family: inherit;
+            font-size: .95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            margin-top: 1.2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-generate::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,.08));
+            opacity: 0;
+            transition: opacity .2s;
+        }
+        .btn-generate:hover:not(:disabled)::before { opacity: 1; }
+        .btn-generate:hover:not(:disabled) {
+            box-shadow: 0 6px 24px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+        .btn-generate:disabled { opacity: .45; cursor: not-allowed; }
+
+        /* ── Status & player ── */
+        #status {
+            margin-top: 1.2rem;
+            text-align: center;
+            min-height: 1.4rem;
+            font-size: .88rem;
+        }
+        .msg-processing { color: var(--yellow); font-weight: 500; }
+        .msg-error { color: var(--red); font-weight: 500; }
+        .msg-done { color: var(--green); font-weight: 500; }
+
+        .spinner {
+            display: inline-block;
+            width: 15px; height: 15px;
+            border: 2.5px solid #222;
+            border-top-color: var(--yellow);
+            border-radius: 50%;
+            animation: spin .65s linear infinite;
+            vertical-align: middle;
+            margin-right: .4rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #player-wrap {
+            margin-top: 1.2rem;
+            display: none;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        #player-wrap video {
+            width: 100%;
+            display: block;
+            background: #000;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: .78rem;
+        }
+
+        /* ── Face picker ── */
+        .face-section { margin-bottom: 1.2rem; }
+        .face-section label {
+            display: block;
+            font-size: .73rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            color: var(--text-muted);
+            margin-bottom: .5rem;
+        }
+        .face-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: .6rem;
+            margin-bottom: .7rem;
+        }
+        .face-option {
+            position: relative;
+            border-radius: var(--radius-sm);
+            border: 2px solid var(--border);
+            overflow: hidden;
+            cursor: pointer;
+            aspect-ratio: 1;
+            transition: all .2s;
+        }
+        .face-option img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .face-option:hover {
+            border-color: var(--border-hover);
+        }
+        .face-option.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+        .face-option .face-name {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            padding: .2rem .3rem;
+            font-size: .6rem;
+            font-weight: 600;
+            text-align: center;
+            background: rgba(0,0,0,.7);
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .face-upload-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .4rem;
+            padding: .55rem .9rem;
+            border: 1px dashed var(--border-hover);
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: .82rem;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .face-upload-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent-light);
+            background: var(--accent-soft);
+        }
+        .face-upload-btn svg {
+            width: 16px; height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+        }
+        .face-empty {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text-dim);
+            font-size: .85rem;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: .7rem;
+        }
+
+        /* ── Setup notice ── */
+        .setup-notice {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+        }
+        .setup-notice p {
+            font-size: .85rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: .6rem;
+        }
+        .setup-notice code {
+            display: inline-block;
+            background: var(--bg);
+            color: var(--accent-light);
+            padding: .2rem .5rem;
+            border-radius: 4px;
+            font-size: .82rem;
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+        }
+
+        /* ── Position picker ── */
+        .position-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+        }
+        .position-option {
+            padding: .4rem .8rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: .8rem;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .position-option:hover {
+            border-color: var(--border-hover);
+            color: #fff;
+        }
+        .position-option.selected {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+            color: var(--accent-light);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 700px) {
+            .cards { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 2rem; }
+            .form-grid { grid-template-columns: 1fr; }
+            .wrapper { padding: 1.2rem 1rem 3rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="wrapper">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <a class="nav-logo" onclick="showPage('home')">
+                <div class="nav-logo-icon">&#9654;</div>
+                <span class="nav-logo-text">VeeGen</span>
+            </a>
+            <span class="nav-badge">Beta</span>
+        </nav>
+
+        <!-- ═══════════ PAGE: HOME ═══════════ -->
+        <div class="page visible" id="page-home">
+            <div class="hero">
+                <h1>Create <span class="gradient">stunning videos</span><br>in seconds</h1>
+                <p>Choose a video type below to get started. AI handles the script, voiceover, subtitles, transitions, and music.</p>
+            </div>
+
+            <p class="section-label">Video Types</p>
+            <div class="cards">
+
+                <!-- UGC Promo -->
+                <div class="card ready" onclick="showPage('create')">
+                    <div class="card-row">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#7c3aed20,#7c3aed08);">&#127916;</div>
+                        <span class="card-badge">Ready</span>
+                    </div>
+                    <h3>UGC Promo</h3>
+                    <p class="desc">Short-form product promos with voiceover, subtitles, transitions &amp; background music. Built for TikTok, Reels &amp; Shorts.</p>
+                    <div class="card-chips">
+                        <span>~30s</span>
+                        <span>15 languages</span>
+                        <span>3 tones</span>
+                        <span>5 niches</span>
+                    </div>
+                </div>
+
+                <!-- Lip Sync Promo -->
+                <div class="card ready" onclick="showPage('lipsync')" style="border-color:#ec489944;">
+                    <div class="card-row">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#ec489920,#ec489908);">&#128483;</div>
+                        <span class="card-badge" style="background:#ec4899;color:#fff;">{{ 'Ready' if lipsync_ready else 'Setup Required' }}</span>
+                    </div>
+                    <h3>Lip Sync Promo</h3>
+                    <p class="desc">UGC promo with a talking-head overlay. Choose a face, and AI syncs the lips to the voiceover using Wav2Lip.</p>
+                    <div class="card-chips">
+                        <span>Wav2Lip</span>
+                        <span>Face upload</span>
+                        <span>Green-screen overlay</span>
+                        <span>Transparent BG</span>
+                    </div>
+                </div>
+
+                <!-- Explainer -->
+                <div class="card soon">
+                    <div class="card-row">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#06b6d420,#06b6d408);">&#128161;</div>
+                        <span class="card-badge">Coming Soon</span>
+                    </div>
+                    <h3>Explainer</h3>
+                    <p class="desc">Break down complex ideas into simple, engaging narratives powered by motion graphics and clear voiceover.</p>
+                    <div class="card-chips">
+                        <span>60–90s</span>
+                        <span>Motion graphics</span>
+                        <span>Voiceover</span>
+                    </div>
+                </div>
+
+                <!-- Testimonial -->
+                <div class="card soon">
+                    <div class="card-row">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#f59e0b20,#f59e0b08);">&#11088;</div>
+                        <span class="card-badge">Coming Soon</span>
+                    </div>
+                    <h3>Testimonial</h3>
+                    <p class="desc">Social-proof videos with customer quotes, star ratings, and trust-building visuals that convert.</p>
+                    <div class="card-chips">
+                        <span>15–30s</span>
+                        <span>Reviews</span>
+                        <span>Social proof</span>
+                    </div>
+                </div>
+
+                <!-- Product Demo -->
+                <div class="card soon">
+                    <div class="card-row">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#10b98120,#10b98108);">&#128230;</div>
+                        <span class="card-badge">Coming Soon</span>
+                    </div>
+                    <h3>Product Demo</h3>
+                    <p class="desc">Showcase features with close-up shots, callout annotations, and step-by-step walkthroughs.</p>
+                    <div class="card-chips">
+                        <span>45–60s</span>
+                        <span>Feature callouts</span>
+                        <span>Zoom effects</span>
+                    </div>
+                </div>
+
+                <!-- Brand Intro -->
+                <div class="card soon">
+                    <div class="card-row">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#ec489920,#ec489908);">&#127775;</div>
+                        <span class="card-badge">Coming Soon</span>
+                    </div>
+                    <h3>Brand Intro</h3>
+                    <p class="desc">Cinematic brand videos with logo reveals, mission statements, and premium visual storytelling.</p>
+                    <div class="card-chips">
+                        <span>30–45s</span>
+                        <span>Cinematic</span>
+                        <span>Logo reveal</span>
+                    </div>
+                </div>
+
+                <!-- Social Story -->
+                <div class="card soon">
+                    <div class="card-row">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#3b82f620,#3b82f608);">&#128242;</div>
+                        <span class="card-badge">Coming Soon</span>
+                    </div>
+                    <h3>Social Story</h3>
+                    <p class="desc">Vertical story-format videos with quick cuts, trending audio, and swipe-up CTAs for Instagram.</p>
+                    <div class="card-chips">
+                        <span>15s</span>
+                        <span>9:16 vertical</span>
+                        <span>Trending audio</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="footer">VeeGen &mdash; AI Video Studio &copy; 2026</div>
+        </div>
+
+        <!-- ═══════════ PAGE: CREATE (UGC Promo) ═══════════ -->
+        <div class="page" id="page-create">
+            <div class="create-header">
+                <button class="btn-back" onclick="showPage('home')">
+                    <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                    Back to video types
+                </button>
+                <div class="create-title">
+                    <div class="icon-wrap" style="background:linear-gradient(135deg,#7c3aed20,#7c3aed08);">&#127916;</div>
+                    <h2>UGC Promo<small>Generate a short-form promotional video with AI</small></h2>
+                </div>
+            </div>
+
+            <div class="form-card">
+                <form id="gen-form">
+                    <div class="form-grid">
+                        <div class="field full">
+                            <label for="product_name">Product Name</label>
+                            <input type="text" id="product_name" name="product_name"
+                                   placeholder="e.g. GlowSerum, FitBand Pro" required autocomplete="off">
+                        </div>
+
+                        <div class="field">
+                            <label for="product_type">Niche</label>
+                            <select id="product_type" name="product_type">
+                                <option value="general" selected>General</option>
+                                {% for pt in product_types %}
+                                <option value="{{ pt }}">{{ pt|capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="tone">Tone</label>
+                            <select id="tone" name="tone">
+                                {% for t in tones %}
+                                <option value="{{ t }}">{{ t|capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="field full">
+                            <label for="language">Language</label>
+                            <select id="language" name="language">
+                                {% for l in languages %}
+                                <option value="{{ l }}"{{ " selected" if l == "english" else "" }}>{{ l|capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-generate" id="btn">
+                        &#9654;&ensp;Generate Video
+                    </button>
+                </form>
+
+                <div id="status"></div>
+
+                <div id="player-wrap">
+                    <video id="player" controls></video>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════ PAGE: LIP SYNC PROMO ═══════════ -->
+        <div class="page" id="page-lipsync">
+            <div class="create-header">
+                <button class="btn-back" onclick="showPage('home')">
+                    <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                    Back to video types
+                </button>
+                <div class="create-title">
+                    <div class="icon-wrap" style="background:linear-gradient(135deg,#ec489920,#ec489908);">&#128483;</div>
+                    <h2>Lip Sync Promo<small>UGC promo with a talking-head overlay powered by Wav2Lip</small></h2>
+                </div>
+            </div>
+
+            {% if not lipsync_ready %}
+            <div class="setup-notice">
+                <p>&#9888; <strong>One-time setup required.</strong> Wav2Lip needs to be downloaded before you can generate lip-sync videos.</p>
+                <p>Run this command in your terminal:</p>
+                <code>python setup_lipsync.py</code>
+                <p style="margin-top:.6rem;margin-bottom:0;font-size:.78rem;color:var(--text-dim);">This will install PyTorch, clone Wav2Lip, and download the models (~500 MB).</p>
+            </div>
+            {% endif %}
+
+            <div class="form-card">
+                <form id="lipsync-form">
+                    <!-- Face picker -->
+                    <div class="face-section">
+                        <label>Choose a Face</label>
+                        {% if faces %}
+                        <div class="face-grid" id="face-grid">
+                            {% for face in faces %}
+                            <div class="face-option" data-face="{{ face.filename }}" onclick="selectFace(this)">
+                                <img src="/face-image/{{ face.filename }}" alt="{{ face.name }}">
+                                <span class="face-name">{{ face.name }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="face-empty">
+                            No face images yet. Upload one below or add images to <code>assets/faces/</code>
+                        </div>
+                        {% endif %}
+                        <input type="file" id="face-file" accept=".jpg,.jpeg,.png,.webp" style="display:none"
+                               onchange="uploadFace(this)">
+                        <button type="button" class="face-upload-btn" onclick="document.getElementById('face-file').click()">
+                            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                            Upload your photo
+                        </button>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="field full">
+                            <label for="ls_product_name">Product Name</label>
+                            <input type="text" id="ls_product_name" name="product_name"
+                                   placeholder="e.g. GlowSerum, FitBand Pro" required autocomplete="off">
+                        </div>
+
+                        <div class="field">
+                            <label for="ls_product_type">Niche</label>
+                            <select id="ls_product_type" name="product_type">
+                                <option value="general" selected>General</option>
+                                {% for pt in product_types %}
+                                <option value="{{ pt }}">{{ pt|capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="ls_tone">Tone</label>
+                            <select id="ls_tone" name="tone">
+                                {% for t in tones %}
+                                <option value="{{ t }}">{{ t|capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="field full">
+                            <label for="ls_language">Language</label>
+                            <select id="ls_language" name="language">
+                                {% for l in languages %}
+                                <option value="{{ l }}"{{ " selected" if l == "english" else "" }}>{{ l|capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="field full">
+                            <label>Overlay Position</label>
+                            <div class="position-grid" id="position-grid">
+                                <button type="button" class="position-option" data-pos="bottom-left" onclick="selectPosition(this)">Bottom Left</button>
+                                <button type="button" class="position-option selected" data-pos="bottom-right" onclick="selectPosition(this)">Bottom Right</button>
+                                <button type="button" class="position-option" data-pos="bottom-center" onclick="selectPosition(this)">Bottom Center</button>
+                                <button type="button" class="position-option" data-pos="top-left" onclick="selectPosition(this)">Top Left</button>
+                                <button type="button" class="position-option" data-pos="top-right" onclick="selectPosition(this)">Top Right</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-generate" id="ls-btn" {{ 'disabled' if not lipsync_ready else '' }}>
+                        &#128483;&ensp;Generate Lip Sync Video
+                    </button>
+                </form>
+
+                <div id="ls-status"></div>
+
+                <div id="ls-player-wrap" style="display:none;margin-top:1.2rem;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);">
+                    <video id="ls-player" controls style="width:100%;display:block;background:#000;"></video>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /wrapper -->
+
+    <script>
+        /* ── Page navigation ── */
+        function showPage(name) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('visible'));
+            document.getElementById('page-' + name).classList.add('visible');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        /* ── Form ── */
+        const form   = document.getElementById("gen-form");
+        const btn    = document.getElementById("btn");
+        const status = document.getElementById("status");
+        const wrap   = document.getElementById("player-wrap");
+        const player = document.getElementById("player");
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const product      = document.getElementById("product_name").value.trim();
+            const product_type = document.getElementById("product_type").value;
+            const tone         = document.getElementById("tone").value;
+            const language     = document.getElementById("language").value;
+            if (!product) return;
+
+            btn.disabled = true;
+            wrap.style.display = "none";
+            player.src = "";
+            status.innerHTML = '<span class="spinner"></span><span class="msg-processing">Generating your video&hellip;</span>';
+
+            try {
+                const res = await fetch("/generate", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({product_name: product, tone, language, product_type}),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Request failed");
+                pollStatus(data.job_id);
+            } catch (err) {
+                status.innerHTML = '<span class="msg-error">' + esc(err.message) + '</span>';
+                btn.disabled = false;
+            }
+        });
+
+        async function pollStatus(jobId) {
+            const iv = setInterval(async () => {
+                try {
+                    const r = await fetch("/status/" + jobId);
+                    const d = await r.json();
+                    if (d.status === "done") {
+                        clearInterval(iv);
+                        status.innerHTML = '<span class="msg-done">&#10003; Video ready!</span>';
+                        player.src = d.video;
+                        wrap.style.display = "block";
+                        btn.disabled = false;
+                    } else if (d.status === "error") {
+                        clearInterval(iv);
+                        status.innerHTML = '<span class="msg-error">' + esc(d.error) + '</span>';
+                        btn.disabled = false;
+                    }
+                } catch {
+                    clearInterval(iv);
+                    status.innerHTML = '<span class="msg-error">Lost connection to server.</span>';
+                    btn.disabled = false;
+                }
+            }, 2000);
+        }
+
+        function esc(s) {
+            const d = document.createElement("div");
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        /* ── Lip Sync: face selection ── */
+        let selectedFace = null;
+        let selectedPosition = "bottom-right";
+
+        function selectFace(el) {
+            document.querySelectorAll('.face-option').forEach(o => o.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedFace = el.dataset.face;
+        }
+
+        function selectPosition(el) {
+            document.querySelectorAll('.position-option').forEach(o => o.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedPosition = el.dataset.pos;
+        }
+
+        async function uploadFace(input) {
+            if (!input.files.length) return;
+            const fd = new FormData();
+            fd.append("face", input.files[0]);
+            try {
+                const res = await fetch("/upload-face", { method: "POST", body: fd });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                // Add to face grid
+                let grid = document.getElementById("face-grid");
+                if (!grid) {
+                    // Replace empty state
+                    const section = document.querySelector('#page-lipsync .face-section');
+                    const empty = section.querySelector('.face-empty');
+                    if (empty) empty.remove();
+                    grid = document.createElement('div');
+                    grid.className = 'face-grid';
+                    grid.id = 'face-grid';
+                    section.insertBefore(grid, section.querySelector('.face-upload-btn') || section.querySelector('input[type=file]'));
+                }
+
+                const opt = document.createElement('div');
+                opt.className = 'face-option selected';
+                opt.dataset.face = data.filename;
+                opt.onclick = function() { selectFace(this); };
+                opt.innerHTML = `<img src="/face-image/${data.filename}" alt="${esc(data.name)}"><span class="face-name">${esc(data.name)}</span>`;
+                grid.appendChild(opt);
+
+                // Select it
+                document.querySelectorAll('.face-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                selectedFace = data.filename;
+            } catch (err) {
+                alert("Upload failed: " + err.message);
+            }
+            input.value = "";
+        }
+
+        /* ── Lip Sync: form submission ── */
+        const lsForm   = document.getElementById("lipsync-form");
+        const lsBtn    = document.getElementById("ls-btn");
+        const lsStatus = document.getElementById("ls-status");
+        const lsWrap   = document.getElementById("ls-player-wrap");
+        const lsPlayer = document.getElementById("ls-player");
+
+        if (lsForm) {
+            lsForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                if (!selectedFace) {
+                    lsStatus.innerHTML = '<span class="msg-error">Please select or upload a face image.</span>';
+                    return;
+                }
+                const product      = document.getElementById("ls_product_name").value.trim();
+                const product_type = document.getElementById("ls_product_type").value;
+                const tone         = document.getElementById("ls_tone").value;
+                const language     = document.getElementById("ls_language").value;
+                if (!product) return;
+
+                lsBtn.disabled = true;
+                lsWrap.style.display = "none";
+                lsPlayer.src = "";
+                lsStatus.innerHTML = '<span class="spinner"></span><span class="msg-processing">Generating lip-sync video &mdash; this may take a few minutes&hellip;</span>';
+
+                try {
+                    const res = await fetch("/generate-lipsync", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({
+                            product_name: product, tone, language, product_type,
+                            face: selectedFace, position: selectedPosition,
+                        }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Request failed");
+                    pollLipsyncStatus(data.job_id);
+                } catch (err) {
+                    lsStatus.innerHTML = '<span class="msg-error">' + esc(err.message) + '</span>';
+                    lsBtn.disabled = false;
+                }
+            });
+        }
+
+        async function pollLipsyncStatus(jobId) {
+            const iv = setInterval(async () => {
+                try {
+                    const r = await fetch("/status/" + jobId);
+                    const d = await r.json();
+                    if (d.status === "done") {
+                        clearInterval(iv);
+                        lsStatus.innerHTML = '<span class="msg-done">&#10003; Lip-sync video ready!</span>';
+                        lsPlayer.src = d.video;
+                        lsWrap.style.display = "block";
+                        lsBtn.disabled = false;
+                    } else if (d.status === "error") {
+                        clearInterval(iv);
+                        lsStatus.innerHTML = '<span class="msg-error">' + esc(d.error) + '</span>';
+                        lsBtn.disabled = false;
+                    }
+                } catch {
+                    clearInterval(iv);
+                    lsStatus.innerHTML = '<span class="msg-error">Lost connection to server.</span>';
+                    lsBtn.disabled = false;
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

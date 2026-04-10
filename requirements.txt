@@ -1,0 +1,11 @@
+gTTS==2.5.4
+Flask>=3.0
+deep-translator>=1.11
+
+# Lip Sync (install via: python setup_lipsync.py)
+# torch
+# torchvision
+# opencv-python
+# librosa
+rembg
+Pillow

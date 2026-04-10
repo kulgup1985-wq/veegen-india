@@ -1,0 +1,30 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Large model files (downloaded via setup_lipsync.py)
+wav2lip/
+ffmpeg/
+
+# Generated outputs
+assets/output/
+assets/clips/
+assets/cache/
+
+# Face images (user data)
+assets/faces/*.jpg
+assets/faces/*.png
+assets/faces/*.jpeg
+assets/faces/*.webp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Wan2.1 model (downloaded separately)
+Wan2.1-T2V-1.3B/
