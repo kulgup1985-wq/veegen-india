@@ -26,5 +26,9 @@ assets/faces/*.webp
 .DS_Store
 Thumbs.db
 
+# Local RunPod secrets/config
+runpod_config.ps1
+runpod_config.json
+
 # Wan2.1 model (downloaded separately)
 Wan2.1-T2V-1.3B/

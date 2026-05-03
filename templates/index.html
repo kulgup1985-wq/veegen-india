@@ -11,30 +11,33 @@
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg: #06060a;
-            --surface: #0f0f14;
-            --surface-2: #16161d;
-            --surface-3: #1c1c25;
-            --border: #1e1e28;
-            --border-hover: #2e2e3a;
-            --text: #e4e4e7;
-            --text-muted: #71717a;
-            --text-dim: #52525b;
-            --accent: #7c3aed;
-            --accent-light: #a78bfa;
-            --accent-soft: #7c3aed18;
-            --accent-glow: rgba(124, 58, 237, .22);
-            --cyan: #06b6d4;
-            --green: #34d399;
-            --yellow: #fbbf24;
-            --red: #f87171;
-            --radius: 16px;
-            --radius-sm: 10px;
+            --bg: #0b1117;
+            --surface: #121a22;
+            --surface-2: #18232d;
+            --surface-3: #22303b;
+            --field: #071017;
+            --border: #2b3a46;
+            --border-hover: #476171;
+            --text: #f4f7fa;
+            --text-muted: #b8c4cc;
+            --text-dim: #84939d;
+            --accent: #14b8a6;
+            --accent-light: #5eead4;
+            --accent-soft: rgba(20, 184, 166, .14);
+            --accent-glow: rgba(20, 184, 166, .24);
+            --cyan: #38bdf8;
+            --green: #4ade80;
+            --yellow: #facc15;
+            --red: #fb7185;
+            --radius: 12px;
+            --radius-sm: 8px;
         }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: var(--bg);
+            background: radial-gradient(circle at 20% 0%, #102332 0, transparent 34%),
+                        radial-gradient(circle at 100% 18%, #0f2f2c 0, transparent 30%),
+                        var(--bg);
             color: var(--text);
             min-height: 100vh;
             overflow-x: hidden;
@@ -55,20 +58,20 @@
         }
         .bg-glow .orb-1 {
             width: 550px; height: 550px;
-            background: #7c3aed;
-            opacity: .08;
+            background: #14b8a6;
+            opacity: .07;
             top: -180px; left: -80px;
         }
         .bg-glow .orb-2 {
             width: 400px; height: 400px;
-            background: #06b6d4;
-            opacity: .06;
+            background: #f59e0b;
+            opacity: .05;
             bottom: -120px; right: -60px;
         }
         .bg-glow .orb-3 {
             width: 300px; height: 300px;
-            background: #ec4899;
-            opacity: .04;
+            background: #38bdf8;
+            opacity: .045;
             top: 50%; left: 60%;
         }
 
@@ -107,7 +110,7 @@
         }
         .nav-logo-icon {
             width: 36px; height: 36px;
-            background: linear-gradient(135deg, #7c3aed, #06b6d4);
+            background: linear-gradient(135deg, #14b8a6, #f59e0b);
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -119,7 +122,7 @@
             font-size: 1.35rem;
             font-weight: 800;
             letter-spacing: -.02em;
-            background: linear-gradient(135deg, #fff 40%, var(--accent-light));
+            background: linear-gradient(135deg, #fff 35%, var(--accent-light));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -131,6 +134,27 @@
             background: var(--accent-soft);
             color: var(--accent-light);
             letter-spacing: .04em;
+        }
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+        }
+        .nav-button {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--surface);
+            color: var(--text-muted);
+            padding: .45rem .8rem;
+            font: inherit;
+            font-size: .8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .nav-button:hover {
+            border-color: var(--accent);
+            color: var(--text);
+            background: var(--accent-soft);
         }
 
         /* ── Pages ── */
@@ -182,7 +206,7 @@
 
         .card {
             position: relative;
-            background: var(--surface);
+            background: linear-gradient(180deg, var(--surface), #10171f);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 1.5rem;
@@ -200,11 +224,11 @@
         .card:hover {
             border-color: var(--border-hover);
             transform: translateY(-3px);
-            box-shadow: 0 12px 40px rgba(0,0,0,.35);
+            box-shadow: 0 14px 34px rgba(0,0,0,.32);
         }
 
         .card.ready {
-            border-color: #7c3aed44;
+            border-color: rgba(20, 184, 166, .36);
         }
         .card.ready:hover {
             border-color: var(--accent);
@@ -333,11 +357,12 @@
 
         /* ── Form card ── */
         .form-card {
-            background: var(--surface);
+            background: linear-gradient(180deg, var(--surface), #10171f);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 2rem;
             max-width: 560px;
+            box-shadow: 0 18px 54px rgba(0,0,0,.28);
         }
         .form-card::after {
             content: '';
@@ -372,7 +397,7 @@
             padding: .65rem .85rem;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
-            background: var(--bg);
+            background: var(--field);
             color: var(--text);
             font-family: inherit;
             font-size: .92rem;
@@ -391,7 +416,7 @@
             padding: .8rem;
             border: none;
             border-radius: var(--radius-sm);
-            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            background: linear-gradient(135deg, #14b8a6, #0f766e);
             color: #fff;
             font-family: inherit;
             font-size: .95rem;
@@ -425,8 +450,18 @@
             font-size: .88rem;
         }
         .msg-processing { color: var(--yellow); font-weight: 500; }
-        .msg-error { color: var(--red); font-weight: 500; }
-        .msg-done { color: var(--green); font-weight: 500; }
+        .msg-error {
+            color: var(--red);
+            font-weight: 600;
+            display: inline-block;
+            text-align: left;
+            line-height: 1.4;
+            background: rgba(251, 113, 133, .12);
+            border: 1px solid rgba(251, 113, 133, .34);
+            border-radius: 8px;
+            padding: .55rem .7rem;
+        }
+        .msg-done { color: var(--green); font-weight: 600; }
 
         .spinner {
             display: inline-block;
@@ -500,7 +535,7 @@
         }
         .face-option.selected {
             border-color: var(--accent);
-            box-shadow: 0 0 0 2px var(--accent-glow);
+            box-shadow: 0 0 0 3px var(--accent-glow);
         }
         .face-option .face-name {
             position: absolute;
@@ -575,6 +610,58 @@
             font-family: 'Cascadia Code', 'Fira Code', monospace;
         }
 
+        /* RunPod control panel */
+        .runpod-panel {
+            max-width: 720px;
+        }
+        .runpod-status {
+            display: flex;
+            align-items: center;
+            gap: .65rem;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+            font-size: .9rem;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            box-shadow: 0 0 0 4px rgba(132, 147, 157, .12);
+        }
+        .status-dot.ready {
+            background: var(--green);
+            box-shadow: 0 0 0 4px rgba(74, 222, 128, .14);
+        }
+        .status-dot.error {
+            background: var(--red);
+            box-shadow: 0 0 0 4px rgba(251, 113, 133, .14);
+        }
+        .runpod-actions {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: .6rem;
+            margin-top: 1rem;
+        }
+        .runpod-actions button {
+            padding: .7rem .75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface-2);
+            color: var(--text);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .runpod-actions button:hover {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+        }
+        .runpod-actions .danger:hover {
+            border-color: var(--red);
+            background: rgba(251, 113, 133, .12);
+        }
+
         /* ── Position picker ── */
         .position-grid {
             display: flex;
@@ -585,7 +672,7 @@
             padding: .4rem .8rem;
             border: 1px solid var(--border);
             border-radius: 8px;
-            background: var(--bg);
+            background: var(--field);
             color: var(--text-muted);
             font-family: inherit;
             font-size: .8rem;
@@ -599,7 +686,7 @@
         .position-option.selected {
             border-color: var(--accent);
             background: var(--accent-soft);
-            color: var(--accent-light);
+            color: var(--text);
         }
 
         /* ── Responsive ── */
@@ -607,6 +694,7 @@
             .cards { grid-template-columns: 1fr; }
             .hero h1 { font-size: 2rem; }
             .form-grid { grid-template-columns: 1fr; }
+            .runpod-actions { grid-template-columns: 1fr 1fr; }
             .wrapper { padding: 1.2rem 1rem 3rem; }
         }
     </style>
@@ -625,7 +713,10 @@
                 <div class="nav-logo-icon">&#9654;</div>
                 <span class="nav-logo-text">VeeGen</span>
             </a>
-            <span class="nav-badge">Beta</span>
+            <div class="nav-actions">
+                <button class="nav-button" onclick="showPage('runpod')">RunPod</button>
+                <span class="nav-badge">Beta</span>
+            </div>
         </nav>
 
         <!-- ═══════════ PAGE: HOME ═══════════ -->
@@ -748,6 +839,61 @@
             </div>
 
             <div class="footer">VeeGen &mdash; AI Video Studio &copy; 2026</div>
+        </div>
+
+        <!-- ═══════════ PAGE: RUNPOD SETTINGS ═══════════ -->
+        <div class="page" id="page-runpod">
+            <div class="create-header">
+                <button class="btn-back" onclick="showPage('home')">
+                    <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                    Back to video types
+                </button>
+                <div class="create-title">
+                    <div class="icon-wrap" style="background:linear-gradient(135deg,#14b8a620,#f59e0b10);">&#9889;</div>
+                    <h2>RunPod Backend<small>Control the remote lip-sync worker from this local app</small></h2>
+                </div>
+            </div>
+
+            <div class="form-card runpod-panel">
+                <div class="runpod-status">
+                    <span class="status-dot" id="runpod-dot"></span>
+                    <span id="runpod-status-text">Checking RunPod status...</span>
+                </div>
+
+                <div class="form-grid">
+                    <div class="field full">
+                        <label for="runpod_mode">Backend Mode</label>
+                        <select id="runpod_mode">
+                            <option value="pod"{{ " selected" if runpod_config.mode != "serverless" else "" }}>Pod HTTP Service</option>
+                            <option value="serverless"{{ " selected" if runpod_config.mode == "serverless" else "" }}>Serverless Endpoint</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="runpod_pod_id">Pod ID</label>
+                        <input type="text" id="runpod_pod_id" value="{{ runpod_config.pod_id }}" placeholder="j7i5xg4b9sk4lk">
+                    </div>
+                    <div class="field">
+                        <label for="runpod_api_key">API Key</label>
+                        <input type="password" id="runpod_api_key" placeholder="{{ 'Saved - leave blank to keep' if runpod_config.has_api_key else 'rpa_...' }}">
+                    </div>
+                    <div class="field full">
+                        <label for="runpod_endpoint_id">Serverless Endpoint ID</label>
+                        <input type="text" id="runpod_endpoint_id" value="{{ runpod_config.endpoint_id }}" placeholder="Endpoint ID from RunPod Serverless">
+                    </div>
+                    <div class="field full">
+                        <label for="runpod_url">Backend URL</label>
+                        <input type="text" id="runpod_url" value="{{ runpod_config.url }}" placeholder="https://podid-8000.proxy.runpod.net">
+                    </div>
+                </div>
+
+                <div class="runpod-actions">
+                    <button type="button" onclick="saveRunpodConfig()">Save</button>
+                    <button type="button" onclick="checkRunpodStatus()">Check</button>
+                    <button type="button" onclick="startRunpod()">Start Pod</button>
+                    <button type="button" class="danger" onclick="stopRunpod()">Stop Pod</button>
+                </div>
+                <div id="runpod-message" style="margin-top:1rem;"></div>
+            </div>
         </div>
 
         <!-- ═══════════ PAGE: CREATE (UGC Promo) ═══════════ -->
@@ -931,7 +1077,94 @@
             document.querySelectorAll('.page').forEach(p => p.classList.remove('visible'));
             document.getElementById('page-' + name).classList.add('visible');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (name === 'runpod') checkRunpodStatus();
         }
+
+        function setRunpodStatus(kind, text) {
+            const dot = document.getElementById("runpod-dot");
+            const label = document.getElementById("runpod-status-text");
+            if (!dot || !label) return;
+            dot.className = "status-dot" + (kind ? " " + kind : "");
+            label.textContent = text;
+        }
+
+        function setRunpodMessage(html, isError=false) {
+            const box = document.getElementById("runpod-message");
+            if (!box) return;
+            box.innerHTML = html ? `<span class="${isError ? 'msg-error' : 'msg-done'}">${html}</span>` : "";
+        }
+
+        async function checkRunpodStatus() {
+            setRunpodStatus("", "Checking RunPod status...");
+            try {
+                const res = await fetch("/runpod/status");
+                const data = await res.json();
+                if (data.ready) {
+                    const target = data.mode === "serverless" ? data.endpoint_id : data.url;
+                    setRunpodStatus("ready", "RunPod ready: " + target);
+                } else if (data.configured) {
+                    const target = data.mode === "serverless" ? data.endpoint_id : data.url;
+                    setRunpodStatus("error", "Configured but not responding: " + target);
+                } else {
+                    setRunpodStatus("error", "RunPod is not configured.");
+                }
+            } catch (err) {
+                setRunpodStatus("error", "Could not check RunPod.");
+            }
+        }
+
+        async function saveRunpodConfig() {
+            setRunpodMessage("");
+            const payload = {
+                mode: document.getElementById("runpod_mode").value,
+                pod_id: document.getElementById("runpod_pod_id").value.trim(),
+                endpoint_id: document.getElementById("runpod_endpoint_id").value.trim(),
+                url: document.getElementById("runpod_url").value.trim(),
+                api_key: document.getElementById("runpod_api_key").value.trim(),
+            };
+            try {
+                const res = await fetch("/runpod/config", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Save failed");
+                document.getElementById("runpod_api_key").value = "";
+                setRunpodMessage("RunPod settings saved.");
+                checkRunpodStatus();
+            } catch (err) {
+                setRunpodMessage(esc(err.message), true);
+            }
+        }
+
+        async function startRunpod() {
+            setRunpodMessage("Sending start request...");
+            try {
+                await saveRunpodConfig();
+                const res = await fetch("/runpod/start", { method: "POST" });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Start failed");
+                setRunpodMessage("Start request sent. Use Check after the pod becomes ready.");
+            } catch (err) {
+                setRunpodMessage(esc(err.message), true);
+            }
+        }
+
+        async function stopRunpod() {
+            setRunpodMessage("Sending stop request...");
+            try {
+                await saveRunpodConfig();
+                const res = await fetch("/runpod/stop", { method: "POST" });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Stop failed");
+                setRunpodMessage("Stop request sent.");
+            } catch (err) {
+                setRunpodMessage(esc(err.message), true);
+            }
+        }
+
+        checkRunpodStatus();
 
         /* ── Form ── */
         const form   = document.getElementById("gen-form");

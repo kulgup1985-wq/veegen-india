@@ -1,0 +1,12 @@
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+
+WORKDIR /workspace/VeeGen
+
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg git && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.serverless.txt .
+RUN python -m pip install --upgrade pip && python -m pip install -r requirements.serverless.txt
+
+COPY . .
+
+CMD ["python", "-u", "runpod_serverless_worker.py"]

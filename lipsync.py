@@ -20,9 +20,13 @@ import sys
 import uuid
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FFMPEG_DIR = os.path.join(BASE_DIR, "ffmpeg")
-if os.path.isdir(FFMPEG_DIR) and FFMPEG_DIR not in os.environ.get("PATH", ""):
-    os.environ["PATH"] = FFMPEG_DIR + os.pathsep + os.environ.get("PATH", "")
+
+# Add bundled ffmpeg bin/ to PATH on Windows.
+import glob as _glob
+_ffmpeg_bins = _glob.glob(os.path.join(BASE_DIR, "ffmpeg", "*", "bin"))
+for _b in _ffmpeg_bins:
+    if os.path.isdir(_b) and _b not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = _b + os.pathsep + os.environ.get("PATH", "")
 
 WAV2LIP_DIR = os.path.join(BASE_DIR, "wav2lip")
 CHECKPOINT_PATH = os.path.join(WAV2LIP_DIR, "checkpoints", "wav2lip_gan.pth")
@@ -35,9 +39,13 @@ GREEN_RGB = (0, 177, 64)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _run(cmd: list[str], label: str = "cmd") -> subprocess.CompletedProcess:
+def _run(cmd: list[str], label: str = "cmd", cwd: str = None) -> subprocess.CompletedProcess:
     """Run a subprocess, raise on failure."""
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    if result.stdout:
+        print(f"[{label}] stdout: {result.stdout[:500]}")
+    if result.stderr:
+        print(f"[{label}] stderr: {result.stderr[:500]}")
     if result.returncode != 0:
         raise RuntimeError(f"[LipSync] {label} failed:\n{result.stderr[:1500]}")
     return result
@@ -68,14 +76,45 @@ def get_available_faces() -> list[dict]:
 # ── Step 1: Prepare face on green screen ──────────────────────────────────────
 
 def prepare_face_green_screen(face_path: str, output_path: str,
-                               canvas_w: int = 512, canvas_h: int = 512) -> str:
+                               canvas_w: int = 720, canvas_h: int = 720) -> str:
     """Remove background from face image using rembg, paste onto green canvas."""
-    from PIL import Image
+    from PIL import Image, ImageEnhance, ImageFilter, ImageOps
     from rembg import remove
 
     print("[LipSync] Removing background from face image …")
-    img = Image.open(face_path).convert("RGBA")
-    cutout = remove(img)
+    img = ImageOps.exif_transpose(Image.open(face_path)).convert("RGBA")
+
+    try:
+        cutout = remove(
+            img,
+            alpha_matting=True,
+            alpha_matting_foreground_threshold=240,
+            alpha_matting_background_threshold=10,
+            alpha_matting_erode_size=8,
+            post_process_mask=True,
+        )
+    except Exception as exc:
+        print(f"[LipSync] Alpha matting failed; falling back to standard cutout: {exc}")
+        cutout = remove(img, post_process_mask=True)
+
+    cutout = cutout.convert("RGBA")
+
+    # Tighten noisy edges/halos that become visible after the green-screen key.
+    alpha = cutout.getchannel("A")
+    alpha = alpha.filter(ImageFilter.MedianFilter(size=3))
+    alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.45))
+    alpha = ImageEnhance.Contrast(alpha).enhance(1.25)
+    alpha = alpha.point(lambda p: 0 if p < 6 else (255 if p > 248 else p))
+    cutout.putalpha(alpha)
+
+    bbox = alpha.getbbox()
+    if bbox:
+        pad = 16
+        left = max(0, bbox[0] - pad)
+        top = max(0, bbox[1] - pad)
+        right = min(cutout.width, bbox[2] + pad)
+        bottom = min(cutout.height, bbox[3] + pad)
+        cutout = cutout.crop((left, top, right, bottom))
 
     # Resize cutout to fit canvas while keeping aspect ratio
     cutout.thumbnail((canvas_w, canvas_h), Image.LANCZOS)
@@ -86,7 +125,7 @@ def prepare_face_green_screen(face_path: str, output_path: str,
     y = (canvas_h - cutout.height) // 2
     canvas.paste(cutout, (x, y), cutout)
 
-    canvas.convert("RGB").save(output_path, quality=95)
+    canvas.convert("RGB").save(output_path)
     print(f"[LipSync] Green-screen face → {output_path}")
     return output_path
 
@@ -106,6 +145,8 @@ def run_wav2lip(face_path: str, audio_path: str, output_path: str,
         raise FileNotFoundError(f"Audio not found: {audio_path}")
 
     print("[LipSync] Running Wav2Lip inference …")
+    # Ensure temp/ exists inside wav2lip dir (inference.py writes to temp/result.avi)
+    os.makedirs(os.path.join(WAV2LIP_DIR, "temp"), exist_ok=True)
     cmd = [
         sys.executable,
         os.path.join(WAV2LIP_DIR, "inference.py"),
@@ -117,7 +158,7 @@ def run_wav2lip(face_path: str, audio_path: str, output_path: str,
         "--nosmooth",
         "--pads", "0", "15", "0", "0",
     ]
-    _run(cmd, "Wav2Lip")
+    _run(cmd, "Wav2Lip", cwd=WAV2LIP_DIR)
 
     if not os.path.isfile(output_path):
         raise RuntimeError("Wav2Lip produced no output file.")
@@ -130,26 +171,27 @@ def run_wav2lip(face_path: str, audio_path: str, output_path: str,
 
 def overlay_lipsync(base_video: str, lipsync_video: str, output_path: str,
                     position: str = "bottom-right",
-                    scale: float = 0.30) -> str:
+                    scale: float = 0.58) -> str:
     """Overlay the lip-synced green-screen video onto the base UGC promo.
 
     Uses ffmpeg chromakey to key out the green, then overlay filter.
     """
     # Position expressions for overlay filter
     positions = {
-        "bottom-right":  f"x=W-w-40:y=H-h-160",
-        "bottom-left":   f"x=40:y=H-h-160",
-        "bottom-center": f"x=(W-w)/2:y=H-h-160",
-        "top-right":     f"x=W-w-40:y=100",
-        "top-left":      f"x=40:y=100",
+        "bottom-right":  "x=W-w-18:y=H-h",
+        "bottom-left":   "x=18:y=H-h",
+        "bottom-center": "x=(W-w)/2:y=H-h",
+        "top-right":     "x=W-w-18:y=18",
+        "top-left":      "x=18:y=18",
     }
     pos_expr = positions.get(position, positions["bottom-right"])
 
     # Complex filter:
-    #   [1:v] scale to scale% of base width → chromakey green → overlay on [0:v]
+    #   [1:v] scale to scale% of base width → colorkey green → overlay on [0:v]
+    #   Using colorkey (not chromakey) for better handling of JPEG/encoding artifacts
     vf = (
-        f"[1:v]scale=iw*{scale}:ih*{scale},"
-        f"chromakey=0x{GREEN_HEX}:similarity=0.25:blend=0.08[fg];"
+        f"[1:v]scale=-2:H*{scale},"
+        f"chromakey=0x{GREEN_HEX}:similarity=0.22:blend=0.06[fg];"
         f"[0:v][fg]overlay={pos_expr}:shortest=1[vout]"
     )
 
@@ -183,7 +225,7 @@ def create_lipsync_video(
     language: str = "english",
     product_type: str = "general",
     position: str = "bottom-right",
-    face_scale: float = 0.30,
+    face_scale: float = 0.58,
 ) -> str:
     """End-to-end: generate UGC promo + lip sync overlay.
 
@@ -213,7 +255,7 @@ def create_lipsync_video(
 
         # 3 — Prepare face on green screen
         print("\n[LipSync] ═══ Stage 2: Preparing face ═══")
-        green_face = os.path.join(work_dir, "face_green.jpg")
+        green_face = os.path.join(work_dir, "face_green.png")
         prepare_face_green_screen(face_path, green_face)
 
         # 4 — Run Wav2Lip

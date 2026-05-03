@@ -5,7 +5,11 @@ Run with:  python app.py
 """
 
 import os
+import json
 import threading
+import time
+import uuid
+from urllib.parse import urljoin
 
 from flask import (
     Flask,
@@ -24,23 +28,106 @@ from lipsync import (
 )
 
 app = Flask(__name__)
+RUNPOD_LIPSYNC_URL = os.environ.get("RUNPOD_LIPSYNC_URL", "").strip().rstrip("/")
+RUNPOD_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runpod_config.json")
 
 # Track jobs: job_id -> {"status": ..., "video": ..., "error": ...}
 _jobs: dict[str, dict] = {}
 _jobs_lock = threading.Lock()
 
 
+def _load_runpod_config() -> dict:
+    config = {
+        "api_key": os.environ.get("RUNPOD_API_KEY", "").strip(),
+        "pod_id": os.environ.get("RUNPOD_POD_ID", "").strip(),
+        "url": RUNPOD_LIPSYNC_URL,
+        "mode": os.environ.get("RUNPOD_MODE", "").strip().lower() or "pod",
+        "endpoint_id": os.environ.get("RUNPOD_ENDPOINT_ID", "").strip(),
+    }
+    if os.path.isfile(RUNPOD_CONFIG_PATH):
+        try:
+            with open(RUNPOD_CONFIG_PATH, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+            for key in ("api_key", "pod_id", "url", "mode", "endpoint_id"):
+                if saved.get(key):
+                    config[key] = str(saved[key]).strip()
+        except Exception:
+            pass
+    config["url"] = config["url"].rstrip("/")
+    if config["mode"] not in ("pod", "serverless"):
+        config["mode"] = "pod"
+    return config
+
+
+def _save_runpod_config(config: dict) -> None:
+    clean = {
+        "api_key": str(config.get("api_key", "")).strip(),
+        "pod_id": str(config.get("pod_id", "")).strip(),
+        "url": str(config.get("url", "")).strip().rstrip("/"),
+        "mode": str(config.get("mode", "pod")).strip().lower() or "pod",
+        "endpoint_id": str(config.get("endpoint_id", "")).strip(),
+    }
+    if clean["mode"] not in ("pod", "serverless"):
+        clean["mode"] = "pod"
+    with open(RUNPOD_CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(clean, f, indent=2)
+
+
+def _runpod_url() -> str:
+    return _load_runpod_config().get("url", "")
+
+
+def _runpod_ready(url: str) -> bool:
+    if not url:
+        return False
+    try:
+        import requests
+        response = requests.get(urljoin(url + "/", "faces"), timeout=10)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def _serverless_api_url(endpoint_id: str, operation: str) -> str:
+    return f"https://api.runpod.ai/v2/{endpoint_id}/{operation.lstrip('/')}"
+
+
+def _serverless_ready(config: dict) -> bool:
+    endpoint_id = config.get("endpoint_id", "")
+    api_key = config.get("api_key", "")
+    if not endpoint_id or not api_key:
+        return False
+    try:
+        import requests
+        response = requests.get(
+            _serverless_api_url(endpoint_id, "health"),
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=15,
+        )
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
+    runpod_config = _load_runpod_config()
     return render_template(
         "index.html",
         tones=VALID_TONES,
         languages=VALID_LANGUAGES,
         product_types=VALID_PRODUCT_TYPES,
-        lipsync_ready=is_wav2lip_ready(),
+        lipsync_ready=bool(runpod_config.get("url")) or is_wav2lip_ready(),
         faces=get_available_faces(),
+        runpod_config={
+            "pod_id": runpod_config.get("pod_id", ""),
+            "url": runpod_config.get("url", ""),
+            "mode": runpod_config.get("mode", "pod"),
+            "endpoint_id": runpod_config.get("endpoint_id", ""),
+            "has_api_key": bool(runpod_config.get("api_key")),
+        },
     )
 
 
@@ -97,7 +184,103 @@ def serve_video(filename: str):
 @app.route("/faces")
 def list_faces():
     """Return available face images."""
-    return jsonify({"faces": get_available_faces(), "ready": is_wav2lip_ready()})
+    runpod_url = _runpod_url()
+    return jsonify({
+        "faces": get_available_faces(),
+        "ready": bool(runpod_url) or is_wav2lip_ready(),
+        "runpod": bool(runpod_url),
+    })
+
+
+@app.route("/runpod/config", methods=["GET", "POST"])
+def runpod_config():
+    """Read or update local RunPod settings."""
+    if request.method == "GET":
+        config = _load_runpod_config()
+        return jsonify({
+            "pod_id": config.get("pod_id", ""),
+            "url": config.get("url", ""),
+            "mode": config.get("mode", "pod"),
+            "endpoint_id": config.get("endpoint_id", ""),
+            "has_api_key": bool(config.get("api_key")),
+        })
+
+    data = request.get_json(silent=True) or {}
+    current = _load_runpod_config()
+    api_key = str(data.get("api_key", "")).strip()
+    updated = {
+        "api_key": api_key or current.get("api_key", ""),
+        "pod_id": str(data.get("pod_id", current.get("pod_id", ""))).strip(),
+        "url": str(data.get("url", current.get("url", ""))).strip().rstrip("/"),
+        "mode": str(data.get("mode", current.get("mode", "pod"))).strip().lower(),
+        "endpoint_id": str(data.get("endpoint_id", current.get("endpoint_id", ""))).strip(),
+    }
+    _save_runpod_config(updated)
+    return jsonify({
+        "ok": True,
+        "pod_id": updated["pod_id"],
+        "url": updated["url"],
+        "mode": updated["mode"],
+        "endpoint_id": updated["endpoint_id"],
+        "has_api_key": bool(updated["api_key"]),
+    })
+
+
+@app.route("/runpod/status")
+def runpod_status():
+    config = _load_runpod_config()
+    url = config.get("url", "")
+    mode = config.get("mode", "pod")
+    ready = _serverless_ready(config) if mode == "serverless" else _runpod_ready(url)
+    return jsonify({
+        "configured": bool(config.get("endpoint_id")) if mode == "serverless" else bool(url),
+        "ready": ready,
+        "mode": mode,
+        "pod_id": config.get("pod_id", ""),
+        "url": url,
+        "endpoint_id": config.get("endpoint_id", ""),
+        "has_api_key": bool(config.get("api_key")),
+    })
+
+
+@app.route("/runpod/start", methods=["POST"])
+def runpod_start():
+    config = _load_runpod_config()
+    api_key = config.get("api_key", "")
+    pod_id = config.get("pod_id", "")
+    if not api_key or not pod_id:
+        return jsonify({"error": "RunPod API key and Pod ID are required."}), 400
+    try:
+        import requests
+        response = requests.post(
+            f"https://rest.runpod.io/v1/pods/{pod_id}/start",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=60,
+        )
+        response.raise_for_status()
+        return jsonify({"ok": True, "message": "Start request sent."})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.route("/runpod/stop", methods=["POST"])
+def runpod_stop():
+    config = _load_runpod_config()
+    api_key = config.get("api_key", "")
+    pod_id = config.get("pod_id", "")
+    if not api_key or not pod_id:
+        return jsonify({"error": "RunPod API key and Pod ID are required."}), 400
+    try:
+        import requests
+        response = requests.post(
+            f"https://rest.runpod.io/v1/pods/{pod_id}/stop",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=60,
+        )
+        response.raise_for_status()
+        return jsonify({"ok": True, "message": "Stop request sent."})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 502
 
 
 @app.route("/face-image/<path:filename>")
@@ -129,7 +312,14 @@ def upload_face():
 @app.route("/generate-lipsync", methods=["POST"])
 def generate_lipsync():
     """Start lip-sync video generation in background."""
-    if not is_wav2lip_ready():
+    runpod_config = _load_runpod_config()
+    use_serverless = (
+        runpod_config.get("mode") == "serverless"
+        and bool(runpod_config.get("endpoint_id"))
+        and bool(runpod_config.get("api_key"))
+    )
+    use_runpod = use_serverless or bool(_runpod_url())
+    if not use_runpod and not is_wav2lip_ready():
         return jsonify({"error": "Wav2Lip not set up. Run: python setup_lipsync.py"}), 400
 
     data = request.get_json(silent=True) or {}
@@ -152,14 +342,19 @@ def generate_lipsync():
     if language not in VALID_LANGUAGES:
         return jsonify({"error": f"Invalid language."}), 400
 
-    import uuid
     job_id = uuid.uuid4().hex
 
     with _jobs_lock:
         _jobs[job_id] = {"status": "processing", "video": None, "error": None}
 
+    if use_serverless:
+        target = _run_serverless_lipsync_generation
+    elif use_runpod:
+        target = _run_remote_lipsync_generation
+    else:
+        target = _run_lipsync_generation
     thread = threading.Thread(
-        target=_run_lipsync_generation,
+        target=target,
         args=(job_id, product_name, tone, language, product_type,
               face_path, position),
         daemon=True,
@@ -204,8 +399,170 @@ def _run_lipsync_generation(
             _jobs[job_id]["error"] = str(exc)
 
 
+def _remote_url(path: str) -> str:
+    return urljoin(_runpod_url() + "/", path.lstrip("/"))
+
+
+def _run_remote_lipsync_generation(
+    job_id: str, product_name: str, tone: str, language: str,
+    product_type: str, face_path: str, position: str,
+) -> None:
+    """Delegate lip-sync generation to the RunPod-hosted VeeGen app."""
+    import requests
+
+    try:
+        if not _runpod_url():
+            raise RuntimeError("RUNPOD_LIPSYNC_URL is not configured.")
+
+        with open(face_path, "rb") as f:
+            upload = requests.post(
+                _remote_url("/upload-face"),
+                files={"face": (os.path.basename(face_path), f)},
+                timeout=120,
+            )
+        upload.raise_for_status()
+        remote_face = upload.json()["filename"]
+
+        start = requests.post(
+            _remote_url("/generate-lipsync"),
+            json={
+                "product_name": product_name,
+                "tone": tone,
+                "language": language,
+                "product_type": product_type,
+                "face": remote_face,
+                "position": position,
+            },
+            timeout=120,
+        )
+        start.raise_for_status()
+        remote_job_id = start.json()["job_id"]
+
+        deadline = time.time() + 60 * 45
+        remote_video = None
+        while time.time() < deadline:
+            status = requests.get(
+                _remote_url(f"/status/{remote_job_id}"),
+                timeout=60,
+            )
+            status.raise_for_status()
+            data = status.json()
+            if data.get("status") == "done":
+                remote_video = data.get("video")
+                break
+            if data.get("status") == "error":
+                raise RuntimeError(data.get("error") or "RunPod lip-sync failed.")
+            time.sleep(5)
+
+        if not remote_video:
+            raise TimeoutError("RunPod lip-sync timed out after 45 minutes.")
+
+        download = requests.get(_remote_url(remote_video), stream=True, timeout=300)
+        download.raise_for_status()
+
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        safe_name = product_name.replace(" ", "_")
+        local_name = f"{safe_name}_runpod_lipsync_{uuid.uuid4().hex[:8]}.mp4"
+        local_path = os.path.join(OUTPUT_DIR, local_name)
+        with open(local_path, "wb") as out:
+            for chunk in download.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    out.write(chunk)
+
+        with _jobs_lock:
+            _jobs[job_id]["status"] = "done"
+            _jobs[job_id]["video"] = f"/video/{local_name}"
+    except Exception as exc:
+        with _jobs_lock:
+            _jobs[job_id]["status"] = "error"
+            _jobs[job_id]["error"] = f"RunPod: {exc}"
+
+
+def _run_serverless_lipsync_generation(
+    job_id: str, product_name: str, tone: str, language: str,
+    product_type: str, face_path: str, position: str,
+) -> None:
+    """Delegate lip-sync generation to a RunPod Serverless endpoint."""
+    import base64
+    import requests
+
+    try:
+        config = _load_runpod_config()
+        endpoint_id = config.get("endpoint_id", "")
+        api_key = config.get("api_key", "")
+        if not endpoint_id or not api_key:
+            raise RuntimeError("RunPod Serverless Endpoint ID and API key are required.")
+
+        with open(face_path, "rb") as f:
+            face_b64 = base64.b64encode(f.read()).decode("ascii")
+
+        headers = {"Authorization": f"Bearer {api_key}"}
+        start = requests.post(
+            _serverless_api_url(endpoint_id, "run"),
+            headers=headers,
+            json={
+                "input": {
+                    "product_name": product_name,
+                    "tone": tone,
+                    "language": language,
+                    "product_type": product_type,
+                    "position": position,
+                    "face_filename": os.path.basename(face_path),
+                    "face_b64": face_b64,
+                }
+            },
+            timeout=120,
+        )
+        start.raise_for_status()
+        start_data = start.json()
+        run_id = start_data.get("id") or start_data.get("jobId")
+        if not run_id:
+            raise RuntimeError(f"RunPod did not return a job id: {start_data}")
+
+        deadline = time.time() + 60 * 60
+        output = None
+        while time.time() < deadline:
+            status = requests.get(
+                _serverless_api_url(endpoint_id, f"status/{run_id}"),
+                headers=headers,
+                timeout=60,
+            )
+            status.raise_for_status()
+            data = status.json()
+            state = str(data.get("status", "")).upper()
+            if state == "COMPLETED":
+                output = data.get("output") or {}
+                break
+            if state in {"FAILED", "CANCELLED", "TIMED_OUT"}:
+                raise RuntimeError(data.get("error") or data.get("output") or f"RunPod job {state}")
+            time.sleep(5)
+
+        if not output:
+            raise TimeoutError("RunPod Serverless lip-sync timed out after 60 minutes.")
+
+        video_b64 = output.get("video_b64")
+        if not video_b64:
+            raise RuntimeError(f"RunPod output did not include video_b64: {output}")
+
+        video_bytes = base64.b64decode(video_b64)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        safe_name = product_name.replace(" ", "_")
+        local_name = output.get("filename") or f"{safe_name}_serverless_lipsync_{uuid.uuid4().hex[:8]}.mp4"
+        local_path = os.path.join(OUTPUT_DIR, os.path.basename(local_name))
+        with open(local_path, "wb") as out:
+            out.write(video_bytes)
+
+        with _jobs_lock:
+            _jobs[job_id]["status"] = "done"
+            _jobs[job_id]["video"] = f"/video/{os.path.basename(local_path)}"
+    except Exception as exc:
+        with _jobs_lock:
+            _jobs[job_id]["status"] = "error"
+            _jobs[job_id]["error"] = f"RunPod Serverless: {exc}"
+
+
 # ── Entry-point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    app.run(debug=False, host="127.0.0.1", port=5001)
+    app.run(debug=False, host="0.0.0.0", port=5001)
