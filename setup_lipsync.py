@@ -122,14 +122,8 @@ def patch_wav2lip_compat() -> None:
     with open(audio_path, "r", encoding="utf-8") as f:
         text = f.read()
 
-    old = (
-        "return librosa.filters.mel(hp.sample_rate, hp.n_fft, n_mels=hp.num_mels,\n"
-        "        fmin=hp.fmin, fmax=hp.fmax)"
-    )
-    new = (
-        "return librosa.filters.mel(sr=hp.sample_rate, n_fft=hp.n_fft, n_mels=hp.num_mels,\n"
-        "        fmin=hp.fmin, fmax=hp.fmax)"
-    )
+    old = "librosa.filters.mel(hp.sample_rate, hp.n_fft,"
+    new = "librosa.filters.mel(sr=hp.sample_rate, n_fft=hp.n_fft,"
 
     if new in text:
         print("  Librosa compatibility patch already applied")
