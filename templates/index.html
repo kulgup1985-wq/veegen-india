@@ -868,7 +868,7 @@
                             <option value="serverless"{{ " selected" if runpod_config.mode == "serverless" else "" }}>Serverless Endpoint</option>
                         </select>
                     </div>
-                    <div class="field">
+                    <div class="field" data-runpod-mode-field="pod">
                         <label for="runpod_pod_id">Pod ID</label>
                         <input type="text" id="runpod_pod_id" value="{{ runpod_config.pod_id }}" placeholder="j7i5xg4b9sk4lk">
                     </div>
@@ -880,7 +880,7 @@
                         <label for="runpod_endpoint_id">Serverless Endpoint ID</label>
                         <input type="text" id="runpod_endpoint_id" value="{{ runpod_config.endpoint_id }}" placeholder="Endpoint ID from RunPod Serverless">
                     </div>
-                    <div class="field full">
+                    <div class="field full" data-runpod-mode-field="pod">
                         <label for="runpod_url">Backend URL</label>
                         <input type="text" id="runpod_url" value="{{ runpod_config.url }}" placeholder="https://podid-8000.proxy.runpod.net">
                     </div>
@@ -889,8 +889,8 @@
                 <div class="runpod-actions">
                     <button type="button" onclick="saveRunpodConfig()">Save</button>
                     <button type="button" onclick="checkRunpodStatus()">Check</button>
-                    <button type="button" onclick="startRunpod()">Start Pod</button>
-                    <button type="button" class="danger" onclick="stopRunpod()">Stop Pod</button>
+                    <button type="button" data-runpod-mode-action="pod" onclick="startRunpod()">Start Pod</button>
+                    <button type="button" data-runpod-mode-action="pod" class="danger" onclick="stopRunpod()">Stop Pod</button>
                 </div>
                 <div id="runpod-message" style="margin-top:1rem;"></div>
             </div>
@@ -1094,6 +1094,14 @@
             box.innerHTML = html ? `<span class="${isError ? 'msg-error' : 'msg-done'}">${html}</span>` : "";
         }
 
+        function updateRunpodModeUi() {
+            const mode = document.getElementById("runpod_mode")?.value || "pod";
+            const showPodControls = mode !== "serverless";
+            document.querySelectorAll("[data-runpod-mode-field], [data-runpod-mode-action]").forEach((el) => {
+                el.style.display = showPodControls ? "" : "none";
+            });
+        }
+
         async function checkRunpodStatus() {
             setRunpodStatus("", "Checking RunPod status...");
             try {
@@ -1139,6 +1147,10 @@
         }
 
         async function startRunpod() {
+            if (document.getElementById("runpod_mode").value === "serverless") {
+                setRunpodMessage("Serverless endpoints auto-scale. Use Save, Check, then generate.", false);
+                return;
+            }
             setRunpodMessage("Sending start request...");
             try {
                 await saveRunpodConfig();
@@ -1152,6 +1164,10 @@
         }
 
         async function stopRunpod() {
+            if (document.getElementById("runpod_mode").value === "serverless") {
+                setRunpodMessage("Serverless endpoints auto-scale. There is no pod to stop here.", false);
+                return;
+            }
             setRunpodMessage("Sending stop request...");
             try {
                 await saveRunpodConfig();
@@ -1164,6 +1180,8 @@
             }
         }
 
+        document.getElementById("runpod_mode")?.addEventListener("change", updateRunpodModeUi);
+        updateRunpodModeUi();
         checkRunpodStatus();
 
         /* ── Form ── */

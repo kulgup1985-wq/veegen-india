@@ -246,6 +246,11 @@ def runpod_status():
 @app.route("/runpod/start", methods=["POST"])
 def runpod_start():
     config = _load_runpod_config()
+    if config.get("mode") == "serverless":
+        return jsonify({
+            "ok": True,
+            "message": "Serverless endpoints auto-scale; no pod start is needed.",
+        })
     api_key = config.get("api_key", "")
     pod_id = config.get("pod_id", "")
     if not api_key or not pod_id:
@@ -266,6 +271,11 @@ def runpod_start():
 @app.route("/runpod/stop", methods=["POST"])
 def runpod_stop():
     config = _load_runpod_config()
+    if config.get("mode") == "serverless":
+        return jsonify({
+            "ok": True,
+            "message": "Serverless endpoints auto-scale; no pod stop is needed.",
+        })
     api_key = config.get("api_key", "")
     pod_id = config.get("pod_id", "")
     if not api_key or not pod_id:
