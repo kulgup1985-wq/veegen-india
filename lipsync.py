@@ -47,7 +47,7 @@ def _run(cmd: list[str], label: str = "cmd", cwd: str = None) -> subprocess.Comp
     if result.stderr:
         print(f"[{label}] stderr: {result.stderr[:500]}")
     if result.returncode != 0:
-        raise RuntimeError(f"[LipSync] {label} failed:\n{result.stderr[:1500]}")
+        raise RuntimeError(f"[LipSync] {label} failed:\n{result.stderr[-3000:]}")
     return result
 
 
@@ -190,9 +190,10 @@ def overlay_lipsync(base_video: str, lipsync_video: str, output_path: str,
     #   [1:v] scale to scale% of base width → colorkey green → overlay on [0:v]
     #   Using colorkey (not chromakey) for better handling of JPEG/encoding artifacts
     vf = (
-        f"[1:v]scale=-2:H*{scale},"
+        f"[1:v][0:v]scale2ref=w=-2:h=main_h*{scale}[fgs][base];"
+        f"[fgs]"
         f"chromakey=0x{GREEN_HEX}:similarity=0.22:blend=0.06[fg];"
-        f"[0:v][fg]overlay={pos_expr}:shortest=1[vout]"
+        f"[base][fg]overlay={pos_expr}:shortest=1[vout]"
     )
 
     cmd = [
@@ -201,7 +202,7 @@ def overlay_lipsync(base_video: str, lipsync_video: str, output_path: str,
         "-i", lipsync_video,
         "-filter_complex", vf,
         "-map", "[vout]",
-        "-map", "0:a",
+        "-map", "0:a?",
         "-c:v", "libx264",
         "-preset", "fast",
         "-crf", "21",
