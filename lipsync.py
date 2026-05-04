@@ -85,7 +85,8 @@ def get_available_faces() -> list[dict]:
 # ── Step 1: Prepare face on green screen ──────────────────────────────────────
 
 def prepare_face_green_screen(face_path: str, output_path: str,
-                               canvas_w: int = 720, canvas_h: int = 720) -> str:
+                               canvas_w: int = 720, canvas_h: int = 720,
+                               upper_body_focus: bool = False) -> str:
     """Remove background from face image using rembg, paste onto green canvas."""
     from PIL import Image, ImageEnhance, ImageFilter, ImageOps
     from rembg import remove
@@ -124,6 +125,10 @@ def prepare_face_green_screen(face_path: str, output_path: str,
         right = min(cutout.width, bbox[2] + pad)
         bottom = min(cutout.height, bbox[3] + pad)
         cutout = cutout.crop((left, top, right, bottom))
+
+    if upper_body_focus and cutout.height > cutout.width * 1.15:
+        # Product previews need the speaker to read clearly, not appear full-body tiny.
+        cutout = cutout.crop((0, 0, cutout.width, max(1, int(cutout.height * 0.68))))
 
     # Resize cutout to fit canvas while keeping aspect ratio
     cutout.thumbnail((canvas_w, canvas_h), Image.LANCZOS)
@@ -268,7 +273,13 @@ def create_lipsync_video(
         print("\n[LipSync] ═══ Stage 2: Preparing face ═══")
         green_face = os.path.join(work_dir, "face_green.png")
         if fast_serverless:
-            prepare_face_green_screen(face_path, green_face, canvas_w=256, canvas_h=256)
+            prepare_face_green_screen(
+                face_path,
+                green_face,
+                canvas_w=384,
+                canvas_h=384,
+                upper_body_focus=True,
+            )
         else:
             prepare_face_green_screen(face_path, green_face)
 
@@ -288,7 +299,8 @@ def create_lipsync_video(
         final_name = f"{safe_name}_lipsync_{vid_id}.mp4"
         final_path = os.path.join(_OUT, final_name)
         overlay_lipsync(base_video, lipsync_raw, final_path,
-                        position=position, scale=face_scale)
+                        position=position,
+                        scale=max(face_scale, 0.82) if fast_serverless else face_scale)
 
         return final_path
 
