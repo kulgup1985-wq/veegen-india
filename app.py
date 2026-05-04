@@ -24,6 +24,8 @@ from lipsync import (
     is_wav2lip_ready,
     get_available_faces,
     create_lipsync_video,
+    overlay_lipsync,
+    _run,
     FACES_DIR,
 )
 
@@ -492,10 +494,12 @@ def _run_serverless_lipsync_generation(
     job_id: str, product_name: str, tone: str, language: str,
     product_type: str, face_path: str, position: str,
 ) -> None:
-    """Delegate lip-sync generation to a RunPod Serverless endpoint."""
+    """Generate the base video locally and use RunPod only for Wav2Lip."""
     import base64
     import requests
+    import shutil
 
+    work_dir = None
     try:
         config = _load_runpod_config()
         endpoint_id = config.get("endpoint_id", "")
@@ -503,8 +507,28 @@ def _run_serverless_lipsync_generation(
         if not endpoint_id or not api_key:
             raise RuntimeError("RunPod Serverless Endpoint ID and API key are required.")
 
+        base_video = create_video(
+            product_name,
+            tone=tone,
+            language=language,
+            product_type=product_type,
+        )
+
+        work_dir = os.path.join(OUTPUT_DIR, f"_serverless_lipsync_{uuid.uuid4().hex[:8]}")
+        os.makedirs(work_dir, exist_ok=True)
+        voice_audio = os.path.join(work_dir, "voice.wav")
+        lipsync_raw = os.path.join(work_dir, "lipsync_raw.mp4")
+
+        _run([
+            "ffmpeg", "-y", "-i", base_video,
+            "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
+            voice_audio,
+        ], "extract local audio")
+
         with open(face_path, "rb") as f:
             face_b64 = base64.b64encode(f.read()).decode("ascii")
+        with open(voice_audio, "rb") as f:
+            audio_b64 = base64.b64encode(f.read()).decode("ascii")
 
         headers = {"Authorization": f"Bearer {api_key}"}
         start = requests.post(
@@ -512,13 +536,11 @@ def _run_serverless_lipsync_generation(
             headers=headers,
             json={
                 "input": {
-                    "product_name": product_name,
-                    "tone": tone,
-                    "language": language,
-                    "product_type": product_type,
-                    "position": position,
+                    "mode": "lipsync_only",
                     "face_filename": os.path.basename(face_path),
                     "face_b64": face_b64,
+                    "audio_filename": "voice.wav",
+                    "audio_b64": audio_b64,
                 }
             },
             timeout=120,
@@ -554,13 +576,13 @@ def _run_serverless_lipsync_generation(
         if not video_b64:
             raise RuntimeError(f"RunPod output did not include video_b64: {output}")
 
-        video_bytes = base64.b64decode(video_b64)
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        with open(lipsync_raw, "wb") as out:
+            out.write(base64.b64decode(video_b64))
+
         safe_name = product_name.replace(" ", "_")
-        local_name = output.get("filename") or f"{safe_name}_serverless_lipsync_{uuid.uuid4().hex[:8]}.mp4"
-        local_path = os.path.join(OUTPUT_DIR, os.path.basename(local_name))
-        with open(local_path, "wb") as out:
-            out.write(video_bytes)
+        local_name = f"{safe_name}_hybrid_lipsync_{uuid.uuid4().hex[:8]}.mp4"
+        local_path = os.path.join(OUTPUT_DIR, local_name)
+        overlay_lipsync(base_video, lipsync_raw, local_path, position=position, scale=0.48)
 
         with _jobs_lock:
             _jobs[job_id]["status"] = "done"
@@ -569,6 +591,9 @@ def _run_serverless_lipsync_generation(
         with _jobs_lock:
             _jobs[job_id]["status"] = "error"
             _jobs[job_id]["error"] = f"RunPod Serverless: {exc}"
+    finally:
+        if work_dir:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 # ── Entry-point ──────────────────────────────────────────────────────────────
