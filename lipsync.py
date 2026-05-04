@@ -41,7 +41,16 @@ GREEN_RGB = (0, 177, 64)
 
 def _run(cmd: list[str], label: str = "cmd", cwd: str = None) -> subprocess.CompletedProcess:
     """Run a subprocess, raise on failure."""
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    timeout = int(os.environ.get("VEEGEN_CMD_TIMEOUT", "900"))
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, cwd=cwd, timeout=timeout
+        )
+    except subprocess.TimeoutExpired as exc:
+        stderr = exc.stderr or ""
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        raise RuntimeError(f"[LipSync] {label} timed out after {timeout}s:\n{stderr[-3000:]}")
     if result.stdout:
         print(f"[{label}] stdout: {result.stdout[:500]}")
     if result.stderr:
@@ -239,6 +248,7 @@ def create_lipsync_video(
     os.makedirs(work_dir, exist_ok=True)
 
     try:
+        fast_serverless = os.environ.get("VEEGEN_SERVERLESS_FAST") == "1"
         # 1 — Generate the base UGC promo (with voice audio saved)
         print("\n[LipSync] ═══ Stage 1: Generating base UGC promo ═══")
         base_video = _create_base(
@@ -257,12 +267,20 @@ def create_lipsync_video(
         # 3 — Prepare face on green screen
         print("\n[LipSync] ═══ Stage 2: Preparing face ═══")
         green_face = os.path.join(work_dir, "face_green.png")
-        prepare_face_green_screen(face_path, green_face)
+        if fast_serverless:
+            prepare_face_green_screen(face_path, green_face, canvas_w=384, canvas_h=384)
+        else:
+            prepare_face_green_screen(face_path, green_face)
 
         # 4 — Run Wav2Lip
         print("\n[LipSync] ═══ Stage 3: Lip-sync generation ═══")
         lipsync_raw = os.path.join(work_dir, "lipsync_raw.mp4")
-        run_wav2lip(green_face, voice_audio, lipsync_raw)
+        run_wav2lip(
+            green_face,
+            voice_audio,
+            lipsync_raw,
+            resize_factor=3 if fast_serverless else 1,
+        )
 
         # 5 — Overlay onto base video
         print("\n[LipSync] ═══ Stage 4: Compositing final video ═══")

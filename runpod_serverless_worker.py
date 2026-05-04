@@ -28,6 +28,9 @@ import runpod
 
 from lipsync import create_lipsync_video
 
+os.environ.setdefault("VEEGEN_SERVERLESS_FAST", "1")
+os.environ.setdefault("VEEGEN_CMD_TIMEOUT", "540")
+
 
 def handler(job):
     data = job.get("input") or {}
