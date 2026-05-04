@@ -34,9 +34,9 @@ CACHE_DIR = os.path.join(BASE_DIR, "assets", "cache")
 BGM_DIR = os.path.join(BASE_DIR, "assets", "bgm")
 
 # ── Video settings ───────────────────────────────────────────────────────────
-VIDEO_WIDTH = 1080
-VIDEO_HEIGHT = 1920
-VIDEO_FPS = 30
+VIDEO_WIDTH = int(os.environ.get("VEEGEN_VIDEO_WIDTH", "1080"))
+VIDEO_HEIGHT = int(os.environ.get("VEEGEN_VIDEO_HEIGHT", "1920"))
+VIDEO_FPS = int(os.environ.get("VEEGEN_VIDEO_FPS", "30"))
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 NUM_VARIATIONS = 3
@@ -1535,8 +1535,15 @@ def build_one_video(
     # Step 1 — Build scene plan (different hook each variation)
     scenes = generate_scene_plan(product_name, exclude_hooks=exclude_hooks,
                                    tone=tone, product_type=product_type)
-    if os.environ.get("VEEGEN_SERVERLESS_FAST") == "1" and len(scenes) > 3:
-        scenes = [scenes[0], scenes[2], scenes[-1]]
+    if os.environ.get("VEEGEN_SERVERLESS_FAST") == "1":
+        scenes = [
+            Scene(
+                label="hook",
+                text=f"{product_name} is the quick upgrade that makes life easier.",
+                keyword="demo",
+                duration=0.0,
+            )
+        ]
     hook_template = next(
         (t for t, _kw in HOOKS if t.format(product=product_name) == scenes[0].text),
         scenes[0].text,

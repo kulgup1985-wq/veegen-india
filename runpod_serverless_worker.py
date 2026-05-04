@@ -30,6 +30,9 @@ from lipsync import create_lipsync_video
 
 os.environ.setdefault("VEEGEN_SERVERLESS_FAST", "1")
 os.environ.setdefault("VEEGEN_CMD_TIMEOUT", "540")
+os.environ.setdefault("VEEGEN_VIDEO_WIDTH", "720")
+os.environ.setdefault("VEEGEN_VIDEO_HEIGHT", "1280")
+os.environ.setdefault("VEEGEN_VIDEO_FPS", "24")
 
 
 def handler(job):

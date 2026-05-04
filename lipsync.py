@@ -268,7 +268,7 @@ def create_lipsync_video(
         print("\n[LipSync] ═══ Stage 2: Preparing face ═══")
         green_face = os.path.join(work_dir, "face_green.png")
         if fast_serverless:
-            prepare_face_green_screen(face_path, green_face, canvas_w=384, canvas_h=384)
+            prepare_face_green_screen(face_path, green_face, canvas_w=256, canvas_h=256)
         else:
             prepare_face_green_screen(face_path, green_face)
 
@@ -279,7 +279,7 @@ def create_lipsync_video(
             green_face,
             voice_audio,
             lipsync_raw,
-            resize_factor=3 if fast_serverless else 1,
+            resize_factor=4 if fast_serverless else 1,
         )
 
         # 5 — Overlay onto base video
