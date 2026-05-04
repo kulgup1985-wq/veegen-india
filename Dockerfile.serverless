@@ -8,5 +8,7 @@ COPY requirements.serverless.txt .
 RUN python -m pip install --upgrade pip && python -m pip install -r requirements.serverless.txt
 
 COPY . .
+RUN VEEGEN_SKIP_PACKAGE_INSTALL=1 python setup_lipsync.py
+RUN python -c "import veegen; veegen._ensure_generated_fallback_clips(veegen.CLIPS_DIR)"
 
 CMD ["python", "-u", "runpod_serverless_worker.py"]

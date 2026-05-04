@@ -159,7 +159,10 @@ def main() -> None:
     print("  VeeGen — Wav2Lip Setup")
     print("=" * 50)
 
-    install_packages()
+    if os.environ.get("VEEGEN_SKIP_PACKAGE_INSTALL") == "1":
+        step("Skipping package install")
+    else:
+        install_packages()
     clone_wav2lip()
     download_checkpoint()
     download_face_detection()

@@ -19,9 +19,14 @@ from gtts import gTTS
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FFMPEG_DIR = os.path.join(BASE_DIR, "ffmpeg")
-if os.path.isdir(FFMPEG_DIR) and FFMPEG_DIR not in os.environ.get("PATH", ""):
-    os.environ["PATH"] = FFMPEG_DIR + os.pathsep + os.environ.get("PATH", "")
+
+# Add bundled ffmpeg bin/ to PATH on Windows (the essentials build lives in a
+# versioned sub-folder, so we search for the first bin/ directory under ffmpeg/).
+import glob as _glob
+_ffmpeg_bins = _glob.glob(os.path.join(BASE_DIR, "ffmpeg", "*", "bin"))
+for _b in _ffmpeg_bins:
+    if os.path.isdir(_b) and _b not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = _b + os.pathsep + os.environ.get("PATH", "")
 CLIPS_DIR = os.path.join(BASE_DIR, "assets", "clips")
 OUTPUT_DIR = os.path.join(BASE_DIR, "assets", "output")
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "final.mp4")
@@ -90,8 +95,18 @@ class Scene:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def check_ffmpeg() -> None:
-    """Raise RuntimeError if ffmpeg / ffprobe are missing."""
+    """Raise RuntimeError if ffmpeg / ffprobe are missing. Auto-installs on Linux."""
+    import platform
     for tool in ("ffmpeg", "ffprobe"):
+        if shutil.which(tool) is not None:
+            continue
+        if platform.system() == "Linux":
+            print(f"[VeeGen] {tool} not found — attempting apt-get update && install ffmpeg …")
+            subprocess.run(["apt-get", "update"], check=False)
+            subprocess.run(
+                ["apt-get", "install", "-y", "ffmpeg"],
+                check=False,
+            )
         if shutil.which(tool) is None:
             raise RuntimeError(
                 f"{tool} not found on PATH. "
@@ -895,6 +910,54 @@ def _collect_all_clips(clips_dir: str) -> list[str]:
     return all_files
 
 
+def _ensure_generated_fallback_clips(clips_dir: str) -> list[str]:
+    """Create simple bundled-safe clips when the deployed image has none."""
+    existing = _collect_all_clips(clips_dir)
+    if existing:
+        return existing
+
+    out_dir = os.path.join(clips_dir, "_generated")
+    os.makedirs(out_dir, exist_ok=True)
+
+    palettes = [
+        ("0x07151d", "0x123241", "0x1f7a77"),
+        ("0x10151c", "0x28384a", "0xb38432"),
+        ("0x16131b", "0x322b46", "0x8f5cff"),
+        ("0x0c1712", "0x263f33", "0x5ccf8f"),
+        ("0x1b1510", "0x3c3026", "0xff9b4a"),
+        ("0x08161f", "0x1b3647", "0x63c7e6"),
+    ]
+
+    for idx, (base, band, accent) in enumerate(palettes, start=1):
+        path = os.path.join(out_dir, f"fallback_{idx:02d}.mp4")
+        if os.path.isfile(path) and os.path.getsize(path) > 10_000:
+            continue
+
+        vf = ",".join([
+            f"drawbox=x=0:y=0:w=iw:h=ih:color={base}:t=fill",
+            f"drawbox=x=0:y=ih*0.50:w=iw:h=ih*0.50:color={band}:t=fill",
+            f"drawbox=x=iw*0.06:y=ih*0.10:w=iw*0.88:h=ih*0.20:color={accent}:t=14",
+            f"drawbox=x=iw*0.12:y=ih*0.64:w=iw*0.76:h=ih*0.16:color={accent}:t=10",
+            "noise=alls=6:allf=t+u",
+            "format=yuv420p",
+        ])
+        cmd = [
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-f", "lavfi", "-i",
+            f"color=c={base}:s={VIDEO_WIDTH}x{VIDEO_HEIGHT}:d=8:r={VIDEO_FPS}",
+            "-vf", vf,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+            "-pix_fmt", "yuv420p",
+            path,
+        ]
+        subprocess.run(cmd, check=True)
+
+    generated = _collect_all_clips(out_dir)
+    if generated:
+        print(f"[CLIPS] Generated {len(generated)} fallback clips in {out_dir}")
+    return generated
+
+
 def _pick_clip_for_keyword(
     clips_dir: str,
     keyword: str,
@@ -971,6 +1034,10 @@ def _pick_clip_for_keyword(
     hit = picker(_collect_all_clips(clips_dir))
     if hit:
         return hit, "any"
+
+    hit = picker(_ensure_generated_fallback_clips(clips_dir))
+    if hit:
+        return hit, "generated"
 
     raise RuntimeError(f"No video clips found anywhere in {clips_dir}")
 
@@ -1487,9 +1554,14 @@ def build_one_video(
     normalize_and_process_voice(voiceover_path, voiceover_post)
 
     # Step 4 — Measure voice & assign per-scene durations
+    #   Add transition-overlap time so the merged video is long enough
+    #   for the full voiceover (xfade eats time from adjacent clips).
     voice_dur = get_duration(voiceover_post)
-    print(f"{tag} Voiceover duration: {voice_dur:.1f}s")
-    assign_scene_durations(scenes, voice_dur)
+    n_trans = len(scenes) - 1
+    avg_trans = (TRANSITION_DUR_MIN + TRANSITION_DUR_MAX) / 2
+    transition_pad = n_trans * avg_trans
+    print(f"{tag} Voiceover duration: {voice_dur:.1f}s  (adding {transition_pad:.1f}s for transitions)")
+    assign_scene_durations(scenes, voice_dur + transition_pad)
     print_scene_plan(scenes, f"{tag} Final Scene Timing")
 
     # Step 5 — Select clips by keyword (different from other variations)
