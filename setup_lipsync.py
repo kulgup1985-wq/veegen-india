@@ -20,11 +20,13 @@ FACES_DIR = os.path.join(BASE_DIR, "assets", "faces")
 
 # URLs
 WAV2LIP_REPO = "https://github.com/Rudrabha/Wav2Lip.git"
-# Wav2Lip GAN checkpoint (best quality)
-WAV2LIP_GAN_URL = (
-    "https://iiitaphyd-my.sharepoint.com/personal/radrabha_m_research_iiit_ac_in/"
-    "_layouts/15/download.aspx?share=EdjI7bZlgApMqsVoEUUXpLsBxqXbn5z8VTmoxp55YNDcIA"
-)
+# Wav2Lip GAN checkpoint (best quality). The original SharePoint link is no
+# longer reliable, so try a few public mirrors before giving up.
+WAV2LIP_GAN_URLS = [
+    "https://huggingface.co/spaces/wav2lip/wav2lip/resolve/main/checkpoints/wav2lip_gan.pth",
+    "https://huggingface.co/camenduru/Wav2Lip/resolve/main/checkpoints/wav2lip_gan.pth",
+    "https://huggingface.co/rippertnt/wav2lip/resolve/main/checkpoints/wav2lip_gan.pth",
+]
 # s3fd face detection model
 S3FD_URL = (
     "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth"
@@ -77,7 +79,20 @@ def download_checkpoint() -> None:
         print(f"  Already exists ({os.path.getsize(dest) / 1e6:.0f} MB)")
         return
     print(f"  Downloading to {dest} …")
-    urllib.request.urlretrieve(WAV2LIP_GAN_URL, dest)
+    errors: list[str] = []
+    for url in WAV2LIP_GAN_URLS:
+        try:
+            urllib.request.urlretrieve(url, dest)
+            break
+        except Exception as exc:
+            errors.append(f"{url}: {exc}")
+            if os.path.isfile(dest):
+                os.remove(dest)
+    else:
+        raise RuntimeError(
+            "Could not download Wav2Lip checkpoint from any mirror:\n"
+            + "\n".join(errors)
+        )
     size_mb = os.path.getsize(dest) / 1e6
     print(f"  ✓ Downloaded ({size_mb:.0f} MB)")
 
