@@ -112,6 +112,36 @@ def download_face_detection() -> None:
     print(f"  ✓ Downloaded ({size_mb:.0f} MB)")
 
 
+def patch_wav2lip_compat() -> None:
+    step("Patching Wav2Lip compatibility")
+    audio_path = os.path.join(WAV2LIP_DIR, "audio.py")
+    if not os.path.isfile(audio_path):
+        print("  Wav2Lip audio.py not found yet")
+        return
+
+    with open(audio_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    old = (
+        "return librosa.filters.mel(hp.sample_rate, hp.n_fft, n_mels=hp.num_mels,\n"
+        "        fmin=hp.fmin, fmax=hp.fmax)"
+    )
+    new = (
+        "return librosa.filters.mel(sr=hp.sample_rate, n_fft=hp.n_fft, n_mels=hp.num_mels,\n"
+        "        fmin=hp.fmin, fmax=hp.fmax)"
+    )
+
+    if new in text:
+        print("  Librosa compatibility patch already applied")
+        return
+    if old not in text:
+        raise RuntimeError("Could not find Wav2Lip librosa mel call to patch")
+
+    with open(audio_path, "w", encoding="utf-8") as f:
+        f.write(text.replace(old, new))
+    print("  Patched librosa.filters.mel call")
+
+
 def create_faces_dir() -> None:
     step("Creating assets/faces/ directory")
     os.makedirs(FACES_DIR, exist_ok=True)
@@ -181,6 +211,7 @@ def main() -> None:
     clone_wav2lip()
     download_checkpoint()
     download_face_detection()
+    patch_wav2lip_compat()
     create_faces_dir()
     verify_setup()
 
