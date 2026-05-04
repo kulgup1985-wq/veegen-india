@@ -1,5 +1,4 @@
 runpod
-Flask>=3.0
 gTTS==2.5.4
 deep-translator>=1.11
 rembg[cpu]
